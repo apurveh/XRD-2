@@ -2,16 +2,13 @@ using UnityEngine;
 
 public class EnemyLookAtPlayer : MonoBehaviour
 {
-    // Assign your VR player's Main Camera to this in the Inspector
-    [SerializeField]
-    private Transform playerCamera;
+    // Assign your VR player's Main Camera
+    public Transform playerCamera;
 
     void Update()
     {
         if (playerCamera != null)
         {
-            // --- This is the key part ---
-
             // 1. Get the player's position
             Vector3 targetPosition = playerCamera.position;
 

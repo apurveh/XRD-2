@@ -8,6 +8,7 @@ public class DuelManager : MonoBehaviour
     [Header("Game Objects")]
     public XRGrabInteractable playerGun; // 'DW_Set0'
     public Animator enemyAnimator;       // The enemy's Animator component
+    public EnemyVisuals enemyVisuals; // << ADDED THIS: Assign your enemy object
 
     [Header("Audio")]
     public AudioClip bellSound;        // The "DRAW!" sound
@@ -77,26 +78,42 @@ public class DuelManager : MonoBehaviour
         if (enemyAnimator != null)
         {
             enemyAnimator.gameObject.SetActive(true);
-            // Optional: Reset trigger if it was stuck (good practice)
+            // Reset triggers from last round
             enemyAnimator.ResetTrigger("Draw");
+            enemyAnimator.ResetTrigger("Die");
         }
+
+        // --- ADDED THIS ---
+        // Reset the enemy's gun to the holster
+        if (enemyVisuals != null)
+        {
+            enemyVisuals.ResetToHolster();
+        }
+        // --- END ADDITION ---
 
         float waitTime = Random.Range(minWaitTime, maxWaitTime);
         Debug.Log("Waiting for " + waitTime + " seconds... Don't grab!");
         yield return new WaitForSeconds(waitTime);
 
         // --- 2. The "DRAW!" Phase ---
+        // --- 2. The "DRAW!" Phase ---
         isWaiting = false;
         canDraw = true;
 
         Debug.Log("DRAW!!!");
 
+        // 1. Play the sound FIRST
         if (bellSound != null)
         {
             audioSource.PlayOneShot(bellSound);
         }
 
-        // --- TELL ENEMY TO DRAW! ---
+        // 2. Add "Human Reaction Time" (The delay)
+        // The enemy waits 0.2 to 0.5 seconds before realizing he needs to move
+        float reactionDelay = Random.Range(0.2f, 0.5f);
+        yield return new WaitForSeconds(reactionDelay);
+
+        // 3. NOW trigger the animation
         if (enemyAnimator != null)
         {
             enemyAnimator.SetTrigger("Draw");
@@ -129,11 +146,13 @@ public class DuelManager : MonoBehaviour
         // Stop the enemy from shooting you
         StopCoroutine("EnemyShotTimer");
 
-        // Disable enemy immediately on hit (replace with death animation later)
+        // --- CHANGED THIS ---
+        // Play the death animation
         if (enemyAnimator != null)
         {
-            enemyAnimator.gameObject.SetActive(false);
+            enemyAnimator.SetTrigger("Die");
         }
+        // --- END CHANGE ---
 
         // Start a new duel after a delay
         StartCoroutine(ResetDuel("You win! Next round..."));
@@ -153,6 +172,9 @@ public class DuelManager : MonoBehaviour
         {
             audioSource.PlayOneShot(loseSound);
         }
+
+        // You could also make the enemy "shoot" (play a muzzle flash) here
+        // if you wanted to.
 
         // Start a new duel after a delay
         StartCoroutine(ResetDuel("You lose. Next round..."));

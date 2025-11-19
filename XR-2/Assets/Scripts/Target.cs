@@ -19,8 +19,15 @@ public class Target : MonoBehaviour
                 duelManager.PlayerWins(); // Call the win function!
             }
 
-            // Make the target disappear
-            gameObject.SetActive(false);
+            // --- FIX: REMOVED gameObject.SetActive(false); ---
+            // We rely on the DuelManager to reset the enemy after the animation.
+
+            // OPTIONAL: Disable the Collider so you can't hit him again while he's dying
+            Collider targetCollider = GetComponent<Collider>();
+            if (targetCollider != null)
+            {
+                targetCollider.enabled = false;
+            }
         }
     }
 }
