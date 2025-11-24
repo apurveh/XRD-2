@@ -2,191 +2,188 @@ using UnityEngine;
 using System.Collections;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.SceneManagement;
+using TMPro;
 
 public class DuelManager : MonoBehaviour
 {
     [Header("Game Objects")]
-    public XRGrabInteractable playerGun; // 'DW_Set0'
-    public Animator enemyAnimator;       // The enemy's Animator component
-    public EnemyVisuals enemyVisuals; // << ADDED THIS: Assign your enemy object
+    public XRGrabInteractable playerGun;
+    public Animator enemyAnimator;
+    public EnemyVisuals enemyVisuals;
+
+    [Header("UI Elements")]
+    public GameObject dontGrabText;
+    public GameObject shootText;
+    public TextMeshProUGUI resultText;
 
     [Header("Audio")]
-    public AudioClip bellSound;        // The "DRAW!" sound
-    public AudioClip loseSound;        // A "bang" or "you lose" sound
+    public AudioClip bellSound;
+    public AudioClip loseSound;
+    public AudioClip winSound;
     private AudioSource audioSource;
 
     [Header("Game Settings")]
     public float minWaitTime = 3.0f;
     public float maxWaitTime = 8.0f;
-    public float enemyDrawTime = 1.5f; // << ENEMY SPEED! Time you have to shoot
-    public float resetDelay = 4.0f;    // Time before a new duel starts
+    public float enemyDrawTime = 1.5f;
 
     // --- Game State ---
     private bool isWaiting = false;
-    private bool canDraw = false;
     private bool gameIsOver = false;
+    private float drawStartTime;
 
     void Start()
     {
         audioSource = GetComponent<AudioSource>();
 
         if (playerGun != null)
-        {
             playerGun.selectEntered.AddListener(OnGunGrabbed);
-        }
-        else
-        {
-            Debug.LogError("DuelManager: Player Gun is not assigned!");
-        }
 
-        // Ensure enemy is visible at start
         if (enemyAnimator != null)
-        {
             enemyAnimator.gameObject.SetActive(true);
-        }
 
-        // Begin the first duel!
+        // Turn off all texts initially
+        if (dontGrabText != null) dontGrabText.SetActive(false);
+        if (shootText != null) shootText.SetActive(false);
+        if (resultText != null) resultText.gameObject.SetActive(false);
+
         StartCoroutine(DuelRoutine());
     }
 
     void OnDestroy()
     {
         if (playerGun != null)
-        {
             playerGun.selectEntered.RemoveListener(OnGunGrabbed);
-        }
     }
 
     private void OnGunGrabbed(SelectEnterEventArgs args)
     {
         if (isWaiting)
         {
-            // --- FOUL! ---
-            Debug.Log("FOUL! You grabbed the gun too early!");
-            PlayerLoses("Foul! Too early!");
+            PlayerLoses("FOUL! Too early!");
         }
     }
 
     IEnumerator DuelRoutine()
     {
-        // --- 1. The "Waiting" Phase ---
+        // 1. Setup Phase
         gameIsOver = false;
         isWaiting = true;
-        canDraw = false;
 
-        // Ensure enemy is awake and idling for the next round
+        if (dontGrabText != null) dontGrabText.SetActive(true);
+
+        // Reset Enemy
         if (enemyAnimator != null)
         {
             enemyAnimator.gameObject.SetActive(true);
-            // Reset triggers from last round
             enemyAnimator.ResetTrigger("Draw");
             enemyAnimator.ResetTrigger("Die");
         }
+        if (enemyVisuals != null) enemyVisuals.ResetToHolster();
 
-        // --- ADDED THIS ---
-        // Reset the enemy's gun to the holster
-        if (enemyVisuals != null)
-        {
-            enemyVisuals.ResetToHolster();
-        }
-        // --- END ADDITION ---
-
+        // 2. Wait Phase
         float waitTime = Random.Range(minWaitTime, maxWaitTime);
-        Debug.Log("Waiting for " + waitTime + " seconds... Don't grab!");
         yield return new WaitForSeconds(waitTime);
 
-        // --- 2. The "DRAW!" Phase ---
-        // --- 2. The "DRAW!" Phase ---
-        isWaiting = false;
-        canDraw = true;
+        // 3. DRAW Phase
+        isWaiting = false; // Gun is now live!
 
-        Debug.Log("DRAW!!!");
+        if (dontGrabText != null) dontGrabText.SetActive(false);
+        if (shootText != null) shootText.SetActive(true);
 
-        // 1. Play the sound FIRST
-        if (bellSound != null)
-        {
-            audioSource.PlayOneShot(bellSound);
-        }
+        // Mark the time RIGHT NOW
+        drawStartTime = Time.time;
 
-        // 2. Add "Human Reaction Time" (The delay)
-        // The enemy waits 0.2 to 0.5 seconds before realizing he needs to move
+        if (bellSound != null) audioSource.PlayOneShot(bellSound);
+
+        // Enemy Reaction Delay
         float reactionDelay = Random.Range(0.2f, 0.5f);
         yield return new WaitForSeconds(reactionDelay);
 
-        // 3. NOW trigger the animation
-        if (enemyAnimator != null)
-        {
-            enemyAnimator.SetTrigger("Draw");
-        }
+        if (enemyAnimator != null) enemyAnimator.SetTrigger("Draw");
 
-        // --- 3. START THE ENEMY'S TIMER! ---
+        // Start Enemy Kill Timer
         StartCoroutine(EnemyShotTimer());
     }
 
-    // This is the "enemy's" countdown
     IEnumerator EnemyShotTimer()
     {
         yield return new WaitForSeconds(enemyDrawTime);
-
-        // If we got here, the player was too slow.
         if (!gameIsOver)
         {
-            PlayerLoses("Too slow! You were shot!");
+            PlayerLoses("Too slow! You died.");
         }
     }
 
-    // This is called by the Target script when you hit it
     public void PlayerWins()
     {
         if (gameIsOver) return;
-
         gameIsOver = true;
-        Debug.Log("--- YOU WIN! ---");
 
-        // Stop the enemy from shooting you
         StopCoroutine("EnemyShotTimer");
 
-        // --- CHANGED THIS ---
-        // Play the death animation
-        if (enemyAnimator != null)
-        {
-            enemyAnimator.SetTrigger("Die");
-        }
-        // --- END CHANGE ---
+        // --- 1. Calculate Score ---
+        float reactionTime = Time.time - drawStartTime;
+        string reactionString = reactionTime.ToString("F2");
 
-        // Start a new duel after a delay
-        StartCoroutine(ResetDuel("You win! Next round..."));
+        // --- 2. Handle High Score (PlayerPrefs) ---
+        // We use 1000.0f as a default if no score exists yet, because in speed, lower is better.
+        float bestTime = PlayerPrefs.GetFloat("BestReactionTime", 1000.0f);
+        string message = "";
+
+        if (reactionTime < bestTime)
+        {
+            PlayerPrefs.SetFloat("BestReactionTime", reactionTime);
+            PlayerPrefs.Save();
+            message = $"VICTORY!\nNew Record: {reactionString}s!";
+        }
+        else
+        {
+            message = $"VICTORY!\nTime: {reactionString}s\nBest: {bestTime.ToString("F2")}s";
+        }
+
+        // --- 3. Update Visuals ---
+        if (enemyAnimator != null) enemyAnimator.SetTrigger("Die");
+        if (winSound != null) audioSource.PlayOneShot(winSound);
+
+        StartCoroutine(EndGameSequence(message, true));
     }
 
-    // This is called if you foul or are too slow
-    private void PlayerLoses(string message)
+    private void PlayerLoses(string reason)
     {
         if (gameIsOver) return;
-
         gameIsOver = true;
-        StopAllCoroutines(); // Stop the "Waiting" coroutine
+        StopAllCoroutines();
 
-        Debug.Log("--- YOU LOSE! --- " + message);
+        if (loseSound != null) audioSource.PlayOneShot(loseSound);
 
-        if (loseSound != null)
-        {
-            audioSource.PlayOneShot(loseSound);
-        }
-
-        // You could also make the enemy "shoot" (play a muzzle flash) here
-        // if you wanted to.
-
-        // Start a new duel after a delay
-        StartCoroutine(ResetDuel("You lose. Next round..."));
+        string message = $"DEFEAT\n{reason}";
+        StartCoroutine(EndGameSequence(message, false));
     }
 
-    // Resets the game for the next round
-    IEnumerator ResetDuel(string message)
+    IEnumerator EndGameSequence(string resultMessage, bool won)
     {
-        Debug.Log(message);
-        yield return new WaitForSeconds(resetDelay);
+        // Hide game hints
+        if (dontGrabText != null) dontGrabText.SetActive(false);
+        if (shootText != null) shootText.SetActive(false);
 
-        // Start a new round
-        StartCoroutine(DuelRoutine());
+        // Show Result
+        if (resultText != null)
+        {
+            resultText.text = resultMessage;
+            resultText.gameObject.SetActive(true);
+
+            // Optional: Make text Green for win, Red for lose
+            resultText.color = won ? Color.green : Color.red;
+        }
+
+        Debug.Log(resultMessage);
+
+        // Wait 5 seconds so they can read it
+        yield return new WaitForSeconds(5.0f);
+
+        // Go back to menu
+        SceneManager.LoadScene("MainMenu");
     }
 }
