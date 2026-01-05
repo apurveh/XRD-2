@@ -1,0 +1,5 @@
+C:/Users/apurv/Desktop/BPR/XRD-2/XR-2/.utmp/RelWithDebInfo/i1g4u111/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/apurv/Desktop/BPR/XRD-2/XR-2/.utmp/RelWithDebInfo/i1g4u111/arm64-v8a/CMakeFiles/rebuild_cache.dir
+C:/Users/apurv/Desktop/BPR/XRD-2/XR-2/.utmp/RelWithDebInfo/i1g4u111/arm64-v8a/GameActivity/CMakeFiles/game.dir
+C:/Users/apurv/Desktop/BPR/XRD-2/XR-2/.utmp/RelWithDebInfo/i1g4u111/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+C:/Users/apurv/Desktop/BPR/XRD-2/XR-2/.utmp/RelWithDebInfo/i1g4u111/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir
